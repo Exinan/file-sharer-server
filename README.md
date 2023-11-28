@@ -1,7 +1,7 @@
 # file-sharer-server
 Create a server that allows you to download, upload and delete files 
 
-Comands:
+Commands:
 
 http://localhost:8080/upload
 
