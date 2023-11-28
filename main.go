@@ -45,10 +45,23 @@ func main() {
 
 	server.HandleFunc("/upload", uploadHandler).Methods("POST")
 
+	server.HandleFunc("/download/{filename}", downloadHandler).Methods("GET")
+
+	server.HandleFunc("/delete/{filename}", deleteHandler).Methods("DELETE")
+
+	server.HandleFunc("/shutdown", shutdownHandler).Methods("POST")
+
 	//start the server on port 8080
 	http.Handle("/", server)
-	fmt.Println("Server started on :8080")
-	http.ListenAndServe(":8080", nil)
+
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"main": "starting server",
+		}).Info("Error starting server:", err)
+
+		fmt.Println("Error starting server:", err)
+	}
 }
 
 func pingHandler(w http.ResponseWriter, r *http.Request) {
@@ -105,4 +118,68 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		"func": "uploadHandler",
 	}).Info("File uploaded successfully")
 	w.Write([]byte("File uploaded successfully"))
+}
+
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+
+	filePath := uploadDir + filename
+
+	// open file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"func": "downloadHandler",
+		}).Info("Error opening file:", err)
+		fmt.Println("Error opening file:", err)
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	// respond file
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, filePath)
+
+	log.WithFields(log.Fields{
+		"func": "downloadHandler",
+	}).Info("File downloaded successfully")
+}
+
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+
+	filePath := uploadDir + filename
+
+	// Удаляем файл
+	err := os.Remove(filePath)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"func": "deleteHandler",
+		}).Info("Error deleting file:", err)
+
+		fmt.Println("Error deleting file:", err)
+		http.Error(w, "Error deleting file", http.StatusInternalServerError)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"func": "deleteHandler",
+	}).Info("File deleted successfully")
+	w.Write([]byte("File deleted successfully"))
+}
+
+func shutdownHandler(w http.ResponseWriter, r *http.Request) {
+
+	log.WithFields(log.Fields{
+		"func": "shutdownHandler",
+	}).Info("Received shutdown request. Shutting down...")
+
+	fmt.Println("Received shutdown request. Shutting down...")
+	w.Write([]byte("Shutting down server..."))
+
+	os.Exit(0)
 }
